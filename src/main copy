@@ -1,0 +1,297 @@
+#include <Arduino.h>
+// #include <M5Unified.h>
+#include <M5StickC.h>
+// #include <BleKeyboard.h>
+#include <keymap.h>
+
+// BleKeyboard bleKeyboard("AtomShiftLever");
+#define GPIO_LEVER_UP 5    // ��
+#define GPIO_LEVER_DOWN 8  // ��
+#define GPIO_LEVER_RIGHT 6 // ��
+#define GPIO_LEVER_LEFT 7  // ���F
+
+#define BIT_LEVER_UP 0b00000001
+#define BIT_LEVER_DOWN 0b00000010
+#define BIT_LEVER_RIGHT 0b00000100
+#define BIT_LEVER_LEFT 0b00001000
+
+// LGFX_Sprite baseSprite(&M5.Display);
+
+int width;
+int height;
+
+uint8_t resultPast = 1;
+// uint8 configMode = false;
+enum ConfigMode { none = 0,
+                  forward,
+                  backward };
+
+ConfigMode configMode = none;
+
+// �f�t�H���g�L�[�}�b�v
+uint8_t keyForward = 0x81;
+uint8_t keyBackward = 0x81;
+// uint8_t keyForward = KEY_LEFT_CTRL;
+// uint8_t keyBackward = KEY_LEFT_SHIFT;
+
+// const char *getKeyName(uint8_t key, bool isFoward = true) {
+
+//   while (keymapMap.find(key) == keymapMap.end()) {
+//     Serial.print("not found\n");
+//     if (isFoward) {
+//       key++;
+//       if (key > 0xFB) {
+//         key = 0x81;
+//       }
+//     }
+//     else {
+//       key--;
+//       if (key < 0x81) {
+//         key = 0xFB;
+//       }
+//     }
+//   }
+//   return keymapMap.at(key);
+// }
+const char *getKeyName(uint8_t &key, bool isFoward = true) {
+  uint8_t startKey = key; // Save the starting key to detect looping.
+  do {
+    auto it = keymapMap.find(key);
+    if (it != keymapMap.end()) {
+      return it->second;
+    }
+    // baseSprite.setCursor(0, 0);
+    // baseSprite.printf("key=%02X not found\n", key);
+    if (isFoward) {
+      key++;
+      if (key > 0xFB) {
+        key = 0x81;
+      }
+    }
+    else {
+      key--;
+      if (key < 0x81) {
+        key = 0xFB;
+      }
+    }
+  } while (key != startKey);
+  return nullptr; // Return nullptr if no valid key is found.
+}
+uint8_t readLever() {
+  uint8_t result = 0;
+  if (!digitalRead(GPIO_LEVER_UP)) {
+    // ��
+    result |= BIT_LEVER_UP;
+  }
+  if (!digitalRead(GPIO_LEVER_DOWN)) {
+    // ��
+    result |= BIT_LEVER_DOWN;
+  }
+  if (!digitalRead(GPIO_LEVER_RIGHT)) {
+    // �E
+    result |= BIT_LEVER_RIGHT;
+  }
+  if (!digitalRead(GPIO_LEVER_LEFT)) {
+    // ��
+    result |= BIT_LEVER_LEFT;
+  }
+  // M5.Display.setCursor(0, 50);
+  // M5.Display.printf("%0X\n", result);
+  return result;
+}
+
+void drawDirection(uint8_t mode) {
+  int colorU = 0;
+  int colorM = 0;
+  int colorB = 0;
+  switch (mode) {
+  case 0:
+    colorU = TFT_WHITE;
+    colorM = TFT_WHITE;
+    colorB = TFT_WHITE;
+    break;
+  case 1:
+    colorU = TFT_RED;
+    colorM = TFT_RED;
+    colorB = TFT_WHITE;
+    break;
+  case 2:
+    colorU = TFT_WHITE;
+    colorM = TFT_RED;
+    colorB = TFT_RED;
+    break;
+
+  default:
+    break;
+  }
+
+  // baseSprite.fillTriangle(width / 2, height * 0.1, width * 0.1, height * 0.3, width * 0.9, height * 0.3, colorU);
+  // baseSprite.fillRect(width * 0.3, height * 0.3, width * 0.4, height * 0.3, colorM);
+  // baseSprite.fillTriangle(width / 2, height * 0.8, width * 0.1, height * 0.6, width * 0.9, height * 0.6, colorB);
+}
+
+void drawMode() {
+  // baseSprite.setCursor(0, width * 0.9);
+  // baseSprite.print("Seq. Mode");
+}
+
+void setup(void) {
+  // pinMode(GPIO_LEVER_UP, INPUT_PULLUP);    // ���o�[��
+  // pinMode(GPIO_LEVER_DOWN, INPUT_PULLUP);  // ���o�[��
+  // pinMode(GPIO_LEVER_RIGHT, INPUT_PULLUP); // ���o�[�E
+  // pinMode(GPIO_LEVER_LEFT, INPUT_PULLUP);  // ���o�[��
+  // bleKeyboard.begin();
+
+  // auto cfg = M5.config();
+
+  // // begin M5Unified.
+  // M5.begin(cfg);
+
+  // width = M5.Display.width();
+  // height = M5.Display.height();
+
+  // M5.Display.setRotation(2);
+  // M5.Display.setTextSize(2);
+
+  // baseSprite.createSprite(width, height);
+  // baseSprite.fillScreen(TFT_BLACK);
+  // baseSprite.setTextColor(TFT_WHITE);
+  // baseSprite.setTextSize(2);
+  // baseSprite.setCursor(0, 0);
+  // baseSprite.print("Hello, World!");
+  // baseSprite.pushSprite(0, 0);
+
+  M5.begin();
+  M5.Lcd.setRotation(2);
+  M5.Lcd.setTextSize(2);
+  M5.Lcd.setCursor(0, 0);
+  M5.Lcd.print("Hello, World!");
+  M5.Lcd.setCursor(0, 20);
+  M5.Lcd.print("Press A to restart");
+  // M5.Lcd.setCursor(0, 40);
+}
+
+void loop(void) {
+  M5.update();
+  delay(1);
+  if (M5.BtnA.wasReleased()) {
+    esp_restart();
+  }
+  // //   M5.Display.fillRect(0, 20, 40, 60, 0xFF0000u);
+  // // }
+
+  // uint8_t result = readLever();
+  // // if (M5.BtnA.wasReleased()) {
+  // //   configMode = false;
+  // // }
+
+  // if (configMode) {
+  //   // �ݒ胂�[�h
+  //   if (M5.BtnA.wasReleased()) {
+  //     // ��ʂ������Ɛݒ胂�[�h��i�߂�
+  //     switch (configMode) {
+  //     case forward:
+  //       configMode = backward;
+  //       break;
+  //     case backward:
+  //       configMode = none;
+  //       break;
+  //     default:
+  //       break;
+  //     }
+  //   }
+  //   if (result == resultPast) {
+  //     // ���o�[�ω�����
+  //     return;
+  //   }
+  //   resultPast = result;
+  //   baseSprite.clear();
+  //   baseSprite.setCursor(0, height * 0.6);
+  //   const char *leverDirection;
+
+  //   switch (configMode) {
+  //   case forward:
+  //     leverDirection = "forward";
+  //     break;
+  //   case backward:
+  //     leverDirection = "backward";
+  //     break;
+  //   default:
+  //     leverDirection = "none";
+  //     break;
+  //   }
+
+  //   baseSprite.printf("Choose key for lever %s", leverDirection);
+  //   baseSprite.setCursor(0, height * 0.2);
+  //   const char *keyName = getKeyName(keyForward);
+  //   baseSprite.printf("%s", keyName);
+
+  //   if (result & BIT_LEVER_UP) {
+  //     keyForward++;
+  //     if (keyForward > 0xFB) {
+  //       keyForward = 0x81;
+  //     }
+  //     getKeyName(keyForward);
+  //   }
+  //   else if (result & BIT_LEVER_DOWN) {
+  //     keyForward--;
+  //     if (keyForward < 0x81) {
+  //       keyForward = 0xFB;
+  //     }
+  //     getKeyName(keyForward, false);
+  //   }
+
+  //   baseSprite.pushSprite(0, 0);
+
+  //   return;
+  // }
+
+  // if (M5.BtnA.wasHold()) {
+  //   // configMode = true;
+  //   configMode = forward;
+
+  //   result = BIT_LEVER_LEFT;
+  // }
+  // if (result == resultPast) {
+  //   // ���o�[�ω�����
+  //   return;
+  // }
+  // resultPast = result;
+  // // �ʏ탂�[�h
+  // baseSprite.clear();
+
+  // drawMode();
+  // drawDirection(0);
+
+  // baseSprite.setCursor(0, 0);
+  // // M5.Display.clear();
+  // // M5.Display.setCursor(0, 0);
+  // // }
+  // if (result & BIT_LEVER_UP) {
+  //   baseSprite.print("UP ");
+  //   // M5.Display.print("UP ");
+  //   // M5.Display.setCursor(35, 0);
+  //   // �V�t�g�_�E��
+  //   // bleKeyboard.write(KEY_LEFT_CTRL);
+  //   // bleKeyboard.write(KEY_CAPS_LOCK);
+  //   drawDirection(1);
+  // }
+  // else if (result & BIT_LEVER_DOWN) {
+  //   baseSprite.print("DOWN ");
+  //   // M5.Display.print("DOWN ");
+  //   // M5.Display.setCursor(65, 0);
+  //   // �V�t�g�A�b�v
+  //   // bleKeyboard.write(KEY_LEFT_SHIFT);
+  //   drawDirection(2);
+  // }
+
+  // if (result & BIT_LEVER_RIGHT) {
+  //   baseSprite.print("RIGHT ");
+  //   // M5.Display.print("RIGHT ");
+  // }
+  // else if (result & BIT_LEVER_LEFT) {
+  //   baseSprite.print("LEFT ");
+  //   // M5.Display.print("LEFT ");
+  // }
+  // baseSprite.pushSprite(0, 0);
+}
